@@ -1,0 +1,29 @@
+# CBK PDF Scraper configuration
+# Paths are relative to project root unless absolute.
+
+base_url: "https://www.centralbank.go.ke"
+
+downloads:
+  root: "downloads"
+  bonds: "downloads/bonds"
+  bills: "downloads/bills"
+
+data_dir: "data"
+registry_db: "data/registry.db"
+
+logs_dir: "logs"
+
+# Scraping (longer timeout for slow CBK site; wait_until=load used in code)
+page_load_timeout_sec: 120
+delay_between_pages_sec: 1.0
+delay_between_pdf_requests_sec: 0.5
+
+# Download
+download_timeout_sec: 60
+download_retries: 3
+download_retry_backoff_sec: 2.0
+
+# Concurrency for PDF downloads (1 = sequential)
+download_concurrency: 1
+
+user_agent: "CBK-Scraper/1.0 (compatible; +https://github.com/cbk-scraper)"

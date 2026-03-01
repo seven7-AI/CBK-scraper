@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cbk-scraper"
+version = "1.0.0"
+description = "Download Treasury Bond and Bill PDFs from Central Bank of Kenya"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "playwright>=1.40.0",
+    "httpx>=0.25.0",
+    "pyyaml>=6.0.0",
+]
+
+[project.scripts]
+cbk-scraper = "cbk_scraper.run:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
