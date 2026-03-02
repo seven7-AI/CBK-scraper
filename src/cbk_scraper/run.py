@@ -8,6 +8,9 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+from cbk_common.logging_utils import configure_json_logging
+from cbk_common.redis_client import get_redis
+
 from .config import load_config, get_paths
 from .scrape_bonds import scrape_bonds
 from .scrape_bills import scrape_bills
@@ -15,17 +18,7 @@ from .download import download_pdfs
 
 
 def setup_logging(logs_dir: Path) -> None:
-    logs_dir.mkdir(parents=True, exist_ok=True)
-    log_file = logs_dir / f"cbk_scraper_{datetime.now(timezone.utc).strftime('%Y%m%d')}.log"
-    fmt = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
-    logging.basicConfig(
-        level=logging.INFO,
-        format=fmt,
-        handlers=[
-            logging.StreamHandler(sys.stdout),
-            logging.FileHandler(log_file, encoding="utf-8"),
-        ],
-    )
+    configure_json_logging(logs_dir, service="cbk-scraper")
 
 
 def main() -> int:
@@ -108,7 +101,24 @@ def main() -> int:
             logger.exception("Bills failed: %s", e)
             all_ok = False
 
-    logger.info("=== Done: downloaded=%d skipped=%d failed=%d", total_downloaded, total_skipped, total_failed)
+    logger.info(
+        "=== Done: downloaded=%d skipped=%d failed=%d",
+        total_downloaded,
+        total_skipped,
+        total_failed,
+        extra={"event": "scraper_finished"},
+    )
+
+    # Push run metrics to Redis (optional, if configured)
+    r = get_redis()
+    if r is not None:
+        date_str = datetime.now(timezone.utc).strftime("%Y%m%d")
+        run_key = f"cbk:scraper:run:{date_str}"
+        r.hincrby(run_key, "downloaded", total_downloaded)
+        r.hincrby(run_key, "skipped", total_skipped)
+        r.hincrby(run_key, "failed", total_failed)
+        # Keep run-level stats for 14 days
+        r.expire(run_key, 14 * 24 * 3600)
     return 0 if all_ok else 1
 
 

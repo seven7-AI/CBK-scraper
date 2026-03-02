@@ -8,7 +8,11 @@ import time
 from pathlib import Path
 from urllib.parse import urlparse
 
+from datetime import datetime, timezone
+
 import httpx
+
+from cbk_common.redis_client import get_redis
 
 from .config import load_config, get_paths
 from . import registry
@@ -59,6 +63,9 @@ def download_pdfs(
     delay = delay_between_sec if delay_between_sec is not None else cfg.get("delay_between_pdf_requests_sec", 0.5)
     user_agent = cfg.get("user_agent", "CBK-Scraper/1.0")
 
+    redis_client = get_redis()
+    urls_key = "cbk:scraper:downloaded_urls"
+
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     downloaded = skipped = failed = 0
@@ -71,8 +78,13 @@ def download_pdfs(
         for url in urls:
             if delay > 0:
                 time.sleep(delay)
+            norm_url = registry._normalize_url(url, base)  # type: ignore[attr-defined]
+            if redis_client is not None and redis_client.sismember(urls_key, norm_url):
+                logger.debug("Redis dedup: already downloaded (previous run): %s", url)
+                skipped += 1
+                continue
             if registry.already_downloaded(reg_path, url, base):
-                logger.debug("Already downloaded (previous run): %s", url)
+                logger.debug("SQLite dedup: already downloaded (previous run): %s", url)
                 skipped += 1
                 continue
             filename = _filename_from_url(url)
@@ -92,7 +104,21 @@ def download_pdfs(
                     r.raise_for_status()
                     local_path.write_bytes(r.content)
                     registry.mark_downloaded(reg_path, url, local_path, source, base)
-                    logger.info("Downloaded: %s -> %s", url, local_path.name)
+                    # Best-effort Redis update
+                    if redis_client is not None:
+                        redis_client.sadd(urls_key, norm_url)
+                    logger.info(
+                        "Downloaded: %s -> %s",
+                        url,
+                        local_path.name,
+                        extra={
+                            "event": "download_finished",
+                            "pdf_url": url,
+                            "pdf_path": str(local_path),
+                            "source": source,
+                            "file_size_bytes": local_path.stat().st_size,
+                        },
+                    )
                     downloaded += 1
                     ok = True
                     break

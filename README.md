@@ -1,6 +1,6 @@
 # CBK Treasury PDF Scraper
 
-Downloads Treasury Bond and Treasury Bill (91-, 182-, 364-day) result PDFs from the [Central Bank of Kenya](https://www.centralbank.go.ke) website. **Checks previous runs** so already-scraped URLs are **never downloaded twice** (SQLite registry). Suitable for **daily scheduled runs** on Windows (Task Scheduler) or Linux/macOS (cron).
+Downloads Treasury Bond and Treasury Bill (91-, 182-, 364-day) result PDFs from the [Central Bank of Kenya](https://www.centralbank.go.ke) website. **Checks previous runs** so already-scraped URLs are **never downloaded twice** (SQLite registry + Redis). Includes an OCR pipeline that converts downloaded PDFs into Markdown and JSON, and is designed for **daily scheduled runs** on Windows (Task Scheduler) or Linux/macOS (cron).
 
 ## Features
 
@@ -13,6 +13,7 @@ Downloads Treasury Bond and Treasury Bill (91-, 182-, 364-day) result PDFs from 
 
 - Python 3.10+
 - Playwright (Chromium)
+- Redis (optional but recommended for fast dedup/metrics)
 
 ## Installation
 
@@ -46,7 +47,7 @@ Edit `config.yaml` in the project root:
 
 Optional env overrides: `CBK_DOWNLOADS_ROOT`, `CBK_DATA_DIR`, `CBK_REGISTRY_DB`, `CBK_LOGS_DIR`.
 
-## Usage
+## Usage – scraper
 
 From the project root with the venv activated:
 
@@ -71,51 +72,84 @@ Logs go to `logs/cbk_scraper_YYYYMMDD.log`. PDFs go to `downloads/bonds/` and `d
 
 ---
 
-## Daily job (production) on Windows
+## OCR processing – turning PDFs into Markdown/JSON
 
-To run the scraper **daily** on Windows (e.g. 02:00), use **Task Scheduler** and the provided script.
+After PDFs have been downloaded into `downloads/bonds/` and `downloads/bills/`, run the OCR job:
+
+```powershell
+python -m cbk_ocr.run_ocr
+```
+
+This will:
+
+- Walk the `downloads/` directories.
+- Skip PDFs already processed (tracked in Redis sets).
+- Extract text with `pdfplumber` (text-first engine).
+- Write Markdown to `processed/markdown/{bonds,bills}/`.
+- Write structured JSON (pages + metadata) to `processed/json/{bonds,bills}/`.
+
+You can limit processing during tests:
+
+```powershell
+python -m cbk_ocr.run_ocr --limit 5
+```
+
+---
+
+## Daily jobs (production) on Windows
+
+To run both the scraper and OCR **daily** on Windows, use **Task Scheduler** and the provided scripts.
 
 ### Option A: Use the PowerShell script (recommended)
 
 1. Open PowerShell and go to the project root.
-2. Run the scheduler script (creates a daily task at 02:00 by default):
+2. Run the **dual-job** scheduler script to create two daily tasks:
 
    ```powershell
-   .\scripts\schedule_daily_windows.ps1
+   # Scraper at 10:00, OCR at 12:00 (defaults)
+   .\scripts\schedule_daily_jobs_windows.ps1
+
+   # Custom times, e.g. scraper 09:00 and OCR 11:30
+   .\scripts\schedule_daily_jobs_windows.ps1 -ScraperHour 9 -ScraperMinute 0 -OcrHour 11 -OcrMinute 30
    ```
 
-3. Optional: custom time (e.g. 03:30):
+   This creates:
+
+   - `CBK-Scraper-10AM` → runs `python -m cbk_scraper.run`
+   - `CBK-OCR-12PM` → runs `python -m cbk_ocr.run_ocr`
+
+3. Run the tasks once manually to test:
 
    ```powershell
-   .\scripts\schedule_daily_windows.ps1 -Hour 3 -Minute 30
+   Start-ScheduledTask -TaskName "CBK-Scraper-10AM"
+   Start-ScheduledTask -TaskName "CBK-OCR-12PM"
    ```
 
-4. Run the task once manually to test:
+4. To remove them later:
 
    ```powershell
-   Start-ScheduledTask -TaskName "CBK-Scraper-Daily"
+   Unregister-ScheduledTask -TaskName "CBK-Scraper-10AM"
+   Unregister-ScheduledTask -TaskName "CBK-OCR-12PM"
    ```
 
-5. To remove the task later:
+Both tasks use the Python from `.venv\Scripts\python.exe` if present, so they run with the same env as your manual runs. The scraper only downloads **new** PDFs (SQLite + Redis dedup), and the OCR job only processes **new** PDFs (Redis tracking).
 
-   ```powershell
-   Unregister-ScheduledTask -TaskName "CBK-Scraper-Daily"
-   ```
-
-The script uses the Python from `.venv\Scripts\python.exe` if present, so the task runs with the same env as your manual runs. Each run only downloads **new** PDFs; previous runs’ URLs are skipped via the registry.
-
-### Option B: Create the task manually in Task Scheduler
+### Option B: Create one or both tasks manually in Task Scheduler
 
 1. Open **Task Scheduler** (taskschd.msc).
 2. **Create Basic Task** → Name: e.g. `CBK-Scraper-Daily`.
-3. **Trigger:** Daily, at 02:00 (or your preferred time).
+3. **Trigger:** Daily, at 10:00 (or your preferred time).
 4. **Action:** Start a program.
    - **Program:** `D:\2026 Projects\CBK-scraper\.venv\Scripts\python.exe` (use your project path and venv).
    - **Arguments:** `-m cbk_scraper.run`
    - **Start in:** `D:\2026 Projects\CBK-scraper` (project root).
 5. Finish and run the task once to verify.
 
-Every daily run will **check the registry** and only download PDFs that weren’t scraped in a previous run.
+Repeat similar steps to create a second task (e.g. `CBK-OCR-12PM`) that runs:
+
+- Program: your `.venv\Scripts\python.exe`
+- Arguments: `-m cbk_ocr.run_ocr`
+- Start in: project root
 
 ---
 
@@ -140,8 +174,13 @@ CBK-scraper/
   pyproject.toml
   README.md
   scripts/
-    schedule_daily_windows.ps1   # Register Windows daily task
+    schedule_daily_windows.ps1       # Legacy: single scraper task
+    schedule_daily_jobs_windows.ps1  # Scraper 10AM + OCR 12PM
   src/
+    cbk_common/
+      __init__.py
+      logging_utils.py
+      redis_client.py
     cbk_scraper/
       __init__.py
       config.py
@@ -150,10 +189,25 @@ CBK-scraper/
       scrape_bills.py
       download.py
       run.py
+    cbk_ocr/
+      __init__.py
+      engine.py
+      pipeline.py
+      redis_store.py
+      run_ocr.py
   downloads/
     bonds/
     bills/
   data/
     registry.db        # Tracks scraped URLs (do not delete)
   logs/
+  processed/
+    markdown/
+      bonds/
+      bills/
+    json/
+      bonds/
+      bills/
+  docs/
+    ocr_evaluation.md
 ```

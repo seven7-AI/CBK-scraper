@@ -62,9 +62,28 @@ def scrape_bills(
             page.set_default_timeout(timeout_ms)
             logger.info("Loading bills page: %s", BILLS_URL)
             page.goto(BILLS_URL, wait_until="load", timeout=timeout_ms)
+            # Give DataTables time to bootstrap and render rows
+            try:
+                page.wait_for_selector("#table_2 tbody td.pdf_link a[href]", timeout=timeout_ms)
+            except PlaywrightTimeout:
+                logger.warning("Bills: 91-day table rows did not appear before timeout")
             time.sleep(max(delay_between_pages_sec, 3))
 
             for table_id, label in BILLS_TABLES:
+                # Ensure this table has rendered at least once
+                try:
+                    page.wait_for_selector(
+                        f"#{table_id} tbody td.pdf_link a[href]", timeout=timeout_ms // 2
+                    )
+                except PlaywrightTimeout:
+                    count = page.locator(f"table#{table_id}").count()
+                    logger.warning(
+                        "Bills %s: no rows found for %s (table elements: %d)",
+                        label,
+                        table_id,
+                        count,
+                    )
+
                 if use_show_all:
                     try:
                         length_sel = page.locator(
