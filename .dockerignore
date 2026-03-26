@@ -1,0 +1,19 @@
+.git
+.gitignore
+.venv
+.dist
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+.mypy_cache
+.vscode
+.idea
+
+# Runtime and generated data (mounted in production)
+downloads
+data
+logs
+processed
+

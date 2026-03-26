@@ -8,8 +8,6 @@ import time
 from pathlib import Path
 from urllib.parse import urlparse
 
-from datetime import datetime, timezone
-
 import httpx
 
 from cbk_common.redis_client import get_redis

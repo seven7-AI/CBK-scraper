@@ -1,0 +1,35 @@
+version: "3.9"
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: cbk-scraper:latest
+    working_dir: /app
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      CBK_DOWNLOADS_ROOT: /app/downloads
+      CBK_DATA_DIR: /app/data
+      CBK_REGISTRY_DB: /app/data/registry.db
+      CBK_LOGS_DIR: /app/logs
+    volumes:
+      - ./downloads:/app/downloads
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./processed:/app/processed
+      - ./config.yaml:/app/config.yaml:ro
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+
+volumes:
+  redis_data:
+

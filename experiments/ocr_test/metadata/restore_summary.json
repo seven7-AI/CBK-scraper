@@ -1,0 +1,107 @@
+{
+  "created_at_utc": "2026-03-26T07:35:35.710325+00:00",
+  "total_files": 10,
+  "total_detected_tables": 42,
+  "results": [
+    {
+      "file": "1112836900_NOVEMBER BUYBACK BOND PROSPECTUS .txt",
+      "status": "success",
+      "detected_tables": 9,
+      "output_md": "D:\\2026 Projects\\CBK-scraper\\experiments\\ocr_test\\output\\restored_markdown\\1112836900_NOVEMBER BUYBACK BOND PROSPECTUS .md",
+      "output_json": "D:\\2026 Projects\\CBK-scraper\\experiments\\ocr_test\\output\\restored_structured\\1112836900_NOVEMBER BUYBACK BOND PROSPECTUS .json",
+      "details": {
+        "line_count": 80
+      }
+    },
+    {
+      "file": "1510081164_RESULTS 2672-091 2646-182 2601-364 DATED 09-03-2026.txt",
+      "status": "success",
+      "detected_tables": 4,
+      "output_md": "D:\\2026 Projects\\CBK-scraper\\experiments\\ocr_test\\output\\restored_markdown\\1510081164_RESULTS 2672-091 2646-182 2601-364 DATED 09-03-2026.md",
+      "output_json": "D:\\2026 Projects\\CBK-scraper\\experiments\\ocr_test\\output\\restored_structured\\1510081164_RESULTS 2672-091 2646-182 2601-364 DATED 09-03-2026.json",
+      "details": {
+        "line_count": 51
+      }
+    },
+    {
+      "file": "1648782608_RESULTS 2673-091 2647-182 2602-364 DATED 16-03-2026.txt",
+      "status": "success",
+      "detected_tables": 3,
+      "output_md": "D:\\2026 Projects\\CBK-scraper\\experiments\\ocr_test\\output\\restored_markdown\\1648782608_RESULTS 2673-091 2647-182 2602-364 DATED 16-03-2026.md",
+      "output_json": "D:\\2026 Projects\\CBK-scraper\\experiments\\ocr_test\\output\\restored_structured\\1648782608_RESULTS 2673-091 2647-182 2602-364 DATED 16-03-2026.json",
+      "details": {
+        "line_count": 52
+      }
+    },
+    {
+      "file": "1942012818_NOVEMBER 2025 FXD1-2012-20 AND FXD1-2022-15 DATED 10-11-2025 .txt",
+      "status": "success",
+      "detected_tables": 7,
+      "output_md": "D:\\2026 Projects\\CBK-scraper\\experiments\\ocr_test\\output\\restored_markdown\\1942012818_NOVEMBER 2025 FXD1-2012-20 AND FXD1-2022-15 DATED 10-11-2025 .md",
+      "output_json": "D:\\2026 Projects\\CBK-scraper\\experiments\\ocr_test\\output\\restored_structured\\1942012818_NOVEMBER 2025 FXD1-2012-20 AND FXD1-2022-15 DATED 10-11-2025 .json",
+      "details": {
+        "line_count": 99
+      }
+    },
+    {
+      "file": "42723235_RESULTS 2673-091 2647-182 2602-364 DATED 16-03-2026.txt",
+      "status": "success",
+      "detected_tables": 3,
+      "output_md": "D:\\2026 Projects\\CBK-scraper\\experiments\\ocr_test\\output\\restored_markdown\\42723235_RESULTS 2673-091 2647-182 2602-364 DATED 16-03-2026.md",
+      "output_json": "D:\\2026 Projects\\CBK-scraper\\experiments\\ocr_test\\output\\restored_structured\\42723235_RESULTS 2673-091 2647-182 2602-364 DATED 16-03-2026.json",
+      "details": {
+        "line_count": 52
+      }
+    },
+    {
+      "file": "464924189_RESULTS FXD1-2019-020 AND FXD1-2021-025 DATED 16-03-2026.txt",
+      "status": "success",
+      "detected_tables": 1,
+      "output_md": "D:\\2026 Projects\\CBK-scraper\\experiments\\ocr_test\\output\\restored_markdown\\464924189_RESULTS FXD1-2019-020 AND FXD1-2021-025 DATED 16-03-2026.md",
+      "output_json": "D:\\2026 Projects\\CBK-scraper\\experiments\\ocr_test\\output\\restored_structured\\464924189_RESULTS FXD1-2019-020 AND FXD1-2021-025 DATED 16-03-2026.json",
+      "details": {
+        "line_count": 30
+      }
+    },
+    {
+      "file": "521227439_SWITCH RESULTS FXD3-2019-015 DATED 18-03-2026.txt",
+      "status": "success",
+      "detected_tables": 1,
+      "output_md": "D:\\2026 Projects\\CBK-scraper\\experiments\\ocr_test\\output\\restored_markdown\\521227439_SWITCH RESULTS FXD3-2019-015 DATED 18-03-2026.md",
+      "output_json": "D:\\2026 Projects\\CBK-scraper\\experiments\\ocr_test\\output\\restored_structured\\521227439_SWITCH RESULTS FXD3-2019-015 DATED 18-03-2026.json",
+      "details": {
+        "line_count": 26
+      }
+    },
+    {
+      "file": "578226300_NOVEMBER 2025 FXD1-2012-20 AND FXD1-2022-15 DATED 10-11-2025 .txt",
+      "status": "success",
+      "detected_tables": 7,
+      "output_md": "D:\\2026 Projects\\CBK-scraper\\experiments\\ocr_test\\output\\restored_markdown\\578226300_NOVEMBER 2025 FXD1-2012-20 AND FXD1-2022-15 DATED 10-11-2025 .md",
+      "output_json": "D:\\2026 Projects\\CBK-scraper\\experiments\\ocr_test\\output\\restored_structured\\578226300_NOVEMBER 2025 FXD1-2012-20 AND FXD1-2022-15 DATED 10-11-2025 .json",
+      "details": {
+        "line_count": 99
+      }
+    },
+    {
+      "file": "691474286_RESULTS 2672-091 2646-182 2601-364 DATED 09-03-2026.txt",
+      "status": "success",
+      "detected_tables": 4,
+      "output_md": "D:\\2026 Projects\\CBK-scraper\\experiments\\ocr_test\\output\\restored_markdown\\691474286_RESULTS 2672-091 2646-182 2601-364 DATED 09-03-2026.md",
+      "output_json": "D:\\2026 Projects\\CBK-scraper\\experiments\\ocr_test\\output\\restored_structured\\691474286_RESULTS 2672-091 2646-182 2601-364 DATED 09-03-2026.json",
+      "details": {
+        "line_count": 51
+      }
+    },
+    {
+      "file": "96992528_RESULTS 2673-091 2647-182 2602-364 DATED 16-03-2026.txt",
+      "status": "success",
+      "detected_tables": 3,
+      "output_md": "D:\\2026 Projects\\CBK-scraper\\experiments\\ocr_test\\output\\restored_markdown\\96992528_RESULTS 2673-091 2647-182 2602-364 DATED 16-03-2026.md",
+      "output_json": "D:\\2026 Projects\\CBK-scraper\\experiments\\ocr_test\\output\\restored_structured\\96992528_RESULTS 2673-091 2647-182 2602-364 DATED 16-03-2026.json",
+      "details": {
+        "line_count": 52
+      }
+    }
+  ]
+}

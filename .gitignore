@@ -26,3 +26,15 @@ __pycache__/
 *.swp
 .DS_Store
 Thumbs.db
+
+
+
+# processed data
+processed/
+processed/*
+
+# OCR experiment artifacts
+experiments/ocr_test/input/
+experiments/ocr_test/output/
+experiments/ocr_test/metadata/sample_manifest.json
+experiments/ocr_test/metadata/run_summary.json

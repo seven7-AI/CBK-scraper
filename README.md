@@ -1,213 +1,190 @@
-# CBK Treasury PDF Scraper
+# CBK Treasury Scraper + OCR (Linux Docker)
 
-Downloads Treasury Bond and Treasury Bill (91-, 182-, 364-day) result PDFs from the [Central Bank of Kenya](https://www.centralbank.go.ke) website. **Checks previous runs** so already-scraped URLs are **never downloaded twice** (SQLite registry + Redis). Includes an OCR pipeline that converts downloaded PDFs into Markdown and JSON, and is designed for **daily scheduled runs** on Windows (Task Scheduler) or Linux/macOS (cron).
+Production scraper and OCR pipeline for Central Bank of Kenya Treasury PDFs.
 
-## Features
-
-- **Treasury Bonds:** [treasury bonds results](https://www.centralbank.go.ke/bills-bonds/treasury-bonds/) – one table, all PDF links.
-- **Treasury Bills:** [treasury bills](https://www.centralbank.go.ke/bills-bonds/treasury-bills/) – 91-, 182-, and 364-day result PDFs from three tables.
-- **No duplicate downloads:** A local SQLite registry (`data/registry.db`) records every downloaded URL. Each run skips URLs that were already scraped in a previous run (bonds + bills combined).
-- **Production-ready:** Logging to file and stdout, retries with backoff, configurable timeouts (120s page load by default for slow CBK site).
+- Scrapes Treasury Bonds and Treasury Bills (91/182/364-day tables)
+- Downloads PDFs with deduplication (SQLite + Redis)
+- Runs OCR/text extraction to Markdown and JSON
+- Designed for Linux servers using Docker Compose + host cron
 
 ## Requirements
 
-- Python 3.10+
-- Playwright (Chromium)
-- Redis (optional but recommended for fast dedup/metrics)
+- Linux server with Docker Engine + Docker Compose plugin
+- Internet access to `centralbank.go.ke`
+- UV package manager (recommended for local runs): [https://docs.astral.sh/uv/](https://docs.astral.sh/uv/)
 
-## Installation
+## Dependency Management (UV)
 
-1. Open a terminal in the project root.
+This project is UV-managed with dependencies declared in `pyproject.toml`.
 
-2. Create a virtual environment and install dependencies:
+Local setup:
 
-   ```powershell
-   python -m venv .venv
-   .venv\Scripts\activate
-   pip install -r requirements.txt
-   pip install -e .
-   ```
+```bash
+uv sync
+```
 
-3. Install Playwright browsers (one-time):
+Run commands via UV:
 
-   ```powershell
-   playwright install chromium
-   ```
+```bash
+uv run python -m cbk_scraper.run
+uv run python -m cbk_ocr.run_ocr
+uv run python experiments/ocr_test/sample_selector.py
+uv run python experiments/ocr_test/run_experiment.py --rostaing
+```
+
+## Quick Start (Docker)
+
+From project root:
+
+```bash
+docker compose build
+docker compose up -d redis
+docker compose run --rm app python -m cbk_scraper.run
+docker compose run --rm app python -m cbk_ocr.run_ocr
+```
+
+Outputs:
+
+- PDFs: `downloads/bonds/`, `downloads/bills/`
+- OCR Markdown: `processed/markdown/{bonds,bills}/`
+- OCR JSON: `processed/json/{bonds,bills}/`
+- Logs: `logs/`
+- SQLite registry: `data/registry.db`
+
+## Docker Architecture
+
+- `app` service: runs scraper/OCR commands on-demand
+- `redis` service: dedup/metrics cache and OCR processed tracking
+- bind mounts for persistent data:
+  - `downloads/`, `processed/`, `logs/`, `data/`
+
+`docker-compose.yml` sets:
+
+- `REDIS_HOST=redis`, `REDIS_PORT=6379`
+- path overrides (`CBK_DOWNLOADS_ROOT`, `CBK_DATA_DIR`, `CBK_LOGS_DIR`)
+
+The Docker image installs dependencies using UV (`uv sync --no-dev`) from `pyproject.toml`.
+
+## Scheduling with Host Cron (Linux)
+
+Use host cron to run containerized jobs at required times:
+
+- Scraper: 10:00 daily
+- OCR: 12:00 daily
+
+Helper scripts:
+
+- `scripts/run_scraper.sh`
+- `scripts/run_ocr.sh`
+
+Make scripts executable:
+
+```bash
+chmod +x scripts/run_scraper.sh scripts/run_ocr.sh
+```
+
+Add cron entries (`crontab -e`) using absolute paths:
+
+```bash
+0 10 * * * /absolute/path/to/CBK-scraper/scripts/run_scraper.sh >> /absolute/path/to/CBK-scraper/logs/cron_scraper.log 2>&1
+0 12 * * * /absolute/path/to/CBK-scraper/scripts/run_ocr.sh >> /absolute/path/to/CBK-scraper/logs/cron_ocr.log 2>&1
+```
 
 ## Configuration
 
-Edit `config.yaml` in the project root:
+Main config file: `config.yaml`
 
-- **base_url** – CBK site base.
-- **downloads.bonds** / **downloads.bills** – Where to save PDFs.
-- **data_dir** / **registry_db** – Where the **registry** lives (used to skip already-downloaded URLs).
-- **logs_dir** – Log files.
-- **page_load_timeout_sec** – Default 120 for slow loads.
-- **download_timeout_sec**, **download_retries** – Download behaviour.
+Key settings:
 
-Optional env overrides: `CBK_DOWNLOADS_ROOT`, `CBK_DATA_DIR`, `CBK_REGISTRY_DB`, `CBK_LOGS_DIR`.
+- `base_url`
+- `downloads.root`, `downloads.bonds`, `downloads.bills`
+- `registry_db`
+- `logs_dir`
+- page/download timeout and retry settings
 
-## Usage – scraper
+Environment overrides (already used in compose):
 
-From the project root with the venv activated:
+- `CBK_DOWNLOADS_ROOT`
+- `CBK_DATA_DIR`
+- `CBK_REGISTRY_DB`
+- `CBK_LOGS_DIR`
+- `REDIS_URL` or (`REDIS_HOST`, `REDIS_PORT`, `REDIS_DB`)
 
-```powershell
-# Run both bonds and bills (default). Already-downloaded URLs are skipped.
-python -m cbk_scraper.run
+## Notes on Deduplication
 
-# Bonds only
-python -m cbk_scraper.run --bonds
+- Scraper dedup checks Redis set `cbk:scraper:downloaded_urls` first
+- Falls back to SQLite registry in `data/registry.db`
+- OCR dedup checks Redis set `cbk:ocr:processed_files`
 
-# Bills only
-python -m cbk_scraper.run --bills
-```
+The jobs are idempotent and safe to run repeatedly.
 
-If you didn’t run `pip install -e .`, set the path first:
+## Project Layout
 
-```powershell
-$env:PYTHONPATH = "src"; python -m cbk_scraper.run
-```
-
-Logs go to `logs/cbk_scraper_YYYYMMDD.log`. PDFs go to `downloads/bonds/` and `downloads/bills/`. The registry in `data/registry.db` ensures **no re-downloads** on later runs.
-
----
-
-## OCR processing – turning PDFs into Markdown/JSON
-
-After PDFs have been downloaded into `downloads/bonds/` and `downloads/bills/`, run the OCR job:
-
-```powershell
-python -m cbk_ocr.run_ocr
-```
-
-This will:
-
-- Walk the `downloads/` directories.
-- Skip PDFs already processed (tracked in Redis sets).
-- Extract text with `pdfplumber` (text-first engine).
-- Write Markdown to `processed/markdown/{bonds,bills}/`.
-- Write structured JSON (pages + metadata) to `processed/json/{bonds,bills}/`.
-
-You can limit processing during tests:
-
-```powershell
-python -m cbk_ocr.run_ocr --limit 5
-```
-
----
-
-## Daily jobs (production) on Windows
-
-To run both the scraper and OCR **daily** on Windows, use **Task Scheduler** and the provided scripts.
-
-### Option A: Use the PowerShell script (recommended)
-
-1. Open PowerShell and go to the project root.
-2. Run the **dual-job** scheduler script to create two daily tasks:
-
-   ```powershell
-   # Scraper at 10:00, OCR at 12:00 (defaults)
-   .\scripts\schedule_daily_jobs_windows.ps1
-
-   # Custom times, e.g. scraper 09:00 and OCR 11:30
-   .\scripts\schedule_daily_jobs_windows.ps1 -ScraperHour 9 -ScraperMinute 0 -OcrHour 11 -OcrMinute 30
-   ```
-
-   This creates:
-
-   - `CBK-Scraper-10AM` → runs `python -m cbk_scraper.run`
-   - `CBK-OCR-12PM` → runs `python -m cbk_ocr.run_ocr`
-
-3. Run the tasks once manually to test:
-
-   ```powershell
-   Start-ScheduledTask -TaskName "CBK-Scraper-10AM"
-   Start-ScheduledTask -TaskName "CBK-OCR-12PM"
-   ```
-
-4. To remove them later:
-
-   ```powershell
-   Unregister-ScheduledTask -TaskName "CBK-Scraper-10AM"
-   Unregister-ScheduledTask -TaskName "CBK-OCR-12PM"
-   ```
-
-Both tasks use the Python from `.venv\Scripts\python.exe` if present, so they run with the same env as your manual runs. The scraper only downloads **new** PDFs (SQLite + Redis dedup), and the OCR job only processes **new** PDFs (Redis tracking).
-
-### Option B: Create one or both tasks manually in Task Scheduler
-
-1. Open **Task Scheduler** (taskschd.msc).
-2. **Create Basic Task** → Name: e.g. `CBK-Scraper-Daily`.
-3. **Trigger:** Daily, at 10:00 (or your preferred time).
-4. **Action:** Start a program.
-   - **Program:** `D:\2026 Projects\CBK-scraper\.venv\Scripts\python.exe` (use your project path and venv).
-   - **Arguments:** `-m cbk_scraper.run`
-   - **Start in:** `D:\2026 Projects\CBK-scraper` (project root).
-5. Finish and run the task once to verify.
-
-Repeat similar steps to create a second task (e.g. `CBK-OCR-12PM`) that runs:
-
-- Program: your `.venv\Scripts\python.exe`
-- Arguments: `-m cbk_ocr.run_ocr`
-- Start in: project root
-
----
-
-## Daily job on Linux / macOS (cron)
-
-```bash
-# Edit crontab
-crontab -e
-
-# Run daily at 02:00 (adjust path and Python)
-0 2 * * * cd /path/to/CBK-scraper && .venv/bin/python -m cbk_scraper.run >> /path/to/CBK-scraper/logs/cron.log 2>&1
-```
-
----
-
-## Project layout
-
-```
+```text
 CBK-scraper/
+  Dockerfile
+  docker-compose.yml
+  .dockerignore
   config.yaml
   requirements.txt
   pyproject.toml
   README.md
   scripts/
-    schedule_daily_windows.ps1       # Legacy: single scraper task
-    schedule_daily_jobs_windows.ps1  # Scraper 10AM + OCR 12PM
+    run_scraper.sh
+    run_ocr.sh
   src/
     cbk_common/
-      __init__.py
       logging_utils.py
       redis_client.py
     cbk_scraper/
-      __init__.py
       config.py
-      registry.py      # Prevents re-downloading (previous runs)
+      registry.py
       scrape_bonds.py
       scrape_bills.py
       download.py
       run.py
     cbk_ocr/
-      __init__.py
       engine.py
       pipeline.py
       redis_store.py
       run_ocr.py
   downloads/
-    bonds/
-    bills/
-  data/
-    registry.db        # Tracks scraped URLs (do not delete)
-  logs/
   processed/
-    markdown/
-      bonds/
-      bills/
-    json/
-      bonds/
-      bills/
-  docs/
-    ocr_evaluation.md
+  logs/
+  data/
 ```
+
+## OCR Experiment Sandbox (10 sample docs)
+
+Use the sandbox under `experiments/ocr_test/` to test OCR libraries without
+touching production OCR outputs.
+
+What it does:
+
+- Selects a balanced sample of 10 PDFs from `downloads/` (5 bonds + 5 bills)
+- Copies samples to `experiments/ocr_test/input/{bonds,bills}`
+- Writes all test outputs to `experiments/ocr_test/output/`
+- Stores manifest and run summary in `experiments/ocr_test/metadata/`
+
+Commands:
+
+```bash
+# 1) Build sample set
+python experiments/ocr_test/sample_selector.py
+
+# 2) Run all experiment stages (default)
+python experiments/ocr_test/run_experiment.py
+
+# Or run selected stages (Rostaing is mandatory)
+python experiments/ocr_test/run_experiment.py --preocr --ocrmypdf --rostaing
+
+# 3) Restore OCR text into best-effort markdown tables
+python experiments/ocr_test/restore_tables.py
+python experiments/ocr_test/restore_tables.py --limit 3
+```
+
+Stages:
+
+- `PreOCR`: simple type detection heuristic (`digital` vs `likely_scanned`)
+- `OCRmyPDF`: preserves original PDF while adding OCR text layer (if `ocrmypdf` command is installed)
+- `RostaingOCR`: required when enabled; no fallback module names are used
